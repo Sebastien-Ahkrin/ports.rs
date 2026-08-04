@@ -1,3 +1,6 @@
+use ports::is_port_open;
+
 fn main() {
-    println!("Hello, world!");
+    let is_open = is_port_open(8081);
+    println!("{is_open}")
 }
