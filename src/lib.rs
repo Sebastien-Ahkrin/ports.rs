@@ -42,10 +42,7 @@ impl Ports {
         )
     }
 
-    pub async fn is_ports_open(
-        &self,
-        ports: RangeInclusive<u16>,
-    ) -> Vec<Option<&Service>> {
+    pub async fn is_ports_open(&self, ports: RangeInclusive<u16>) -> Vec<Option<&Service>> {
         let mut result = Vec::new();
 
         for port in ports {
