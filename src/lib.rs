@@ -1,7 +1,7 @@
 mod database;
 
-use std::net::TcpStream;
 use crate::database::{Database, Protocol};
+use std::net::TcpStream;
 
 /// Check if a specific port is already open
 pub fn is_port_open(port: u16) -> bool {
@@ -13,11 +13,12 @@ pub fn is_port_open(port: u16) -> bool {
 pub fn is_port_open_with_name(port: u16) -> (bool, String) {
     let database = Database::default();
     let result = is_port_open(port);
-    
+
     let service = database.lookup(port, Protocol::Tcp);
-    assert!(service.is_some());
-    
-    let name = &service.unwrap().name;
+    let name = service
+        .map(|service| service.name.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+
     (result, name.clone())
 }
 
@@ -38,7 +39,7 @@ pub fn ports_open_in_range(ports: Vec<u16>) -> Vec<u16> {
 /// Check if range of ports is allocated. Return a Vec<(bool, u16, String)> with (port, name) that is allocated
 pub fn ports_open_in_range_with_name(ports: Vec<u16>) -> Vec<(u16, String)> {
     let mut allocated_ports = Vec::new();
-    
+
     for port in ports {
         let result = is_port_open_with_name(port);
         match result {
@@ -46,7 +47,7 @@ pub fn ports_open_in_range_with_name(ports: Vec<u16>) -> Vec<(u16, String)> {
             (false, name) => continue,
         }
     }
-    
+
     allocated_ports
 }
 
