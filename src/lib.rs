@@ -29,8 +29,8 @@ impl Ports {
         }
     }
 
-    pub async fn is_port_open(&self, port: u16, protocol: Protocol) -> (Option<&Service>, bool) {
-        let service = self.database.service_by_port(&(port, protocol));
+    pub async fn is_port_open(&self, port: u16) -> (Option<&Service>, bool) {
+        let service = self.database.service_by_port(&(port, Protocol::Tcp));
         let connection = timeout(self.duration, TcpStream::connect(("127.0.0.1", port))).await;
 
         (
@@ -45,12 +45,11 @@ impl Ports {
     pub async fn is_ports_open(
         &self,
         ports: RangeInclusive<u16>,
-        protocol: Protocol,
     ) -> Vec<Option<&Service>> {
         let mut result = Vec::new();
 
         for port in ports {
-            match self.is_port_open(port, protocol.clone()).await {
+            match self.is_port_open(port).await {
                 (service, true) => result.push(service),
                 (_, false) => continue,
             };
@@ -65,13 +64,13 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn mysql_exists() {
+    async fn mysql_doesnt_exists() {
         let ports = Ports::default();
-        let (service, open) = ports.is_port_open(3306, Protocol::Tcp).await;
+        let (service, open) = ports.is_port_open(3306).await;
 
         assert_eq!(
             (&service.unwrap().name, open),
-            (&String::from("mysql"), true)
+            (&String::from("mysql"), false)
         );
     }
 }

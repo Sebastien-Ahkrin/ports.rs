@@ -17,7 +17,7 @@ pub enum Protocol {
 #[derive(Clone)]
 pub struct Service {
     pub name: String,
-    /// port are between [0..=65536]
+    /// port are between [0..=65535]
     pub port: u16,
     /// Can be Udp, Tcp, Sctp
     pub protocol: Protocol,

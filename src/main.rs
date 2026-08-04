@@ -4,7 +4,7 @@ use ports::database::Protocol;
 #[tokio::main]
 async fn main() {
     let ports = Ports::default();
-    let open_ports = ports.is_ports_open(0..=65532, Protocol::Tcp).await;
+    let open_ports = ports.is_ports_open(0..=65535).await;
 
     for service in open_ports {
         let Some(service) = service else { continue };
