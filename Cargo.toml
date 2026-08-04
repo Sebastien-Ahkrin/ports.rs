@@ -6,3 +6,4 @@ authors = ["Sébastien Ahrkin <30870051+Sebastien-Ahkrin@users.noreply.github.co
 repository = "https://github.com/Sebastien-Ahkrin/ports.rs"
 
 [dependencies]
+tokio = { version = "1.53.1", features = ["net", "time", "macros", "rt-multi-thread"] }
