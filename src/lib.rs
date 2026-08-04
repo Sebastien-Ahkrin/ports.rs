@@ -1,54 +1,49 @@
+use std::ops::RangeInclusive;
+use tokio::{
+    net::TcpStream,
+    time::{Duration, timeout},
+};
+
 mod database;
 
-use crate::database::{Database, Protocol};
-use std::net::TcpStream;
-
-/// Check if a specific port is already open
-pub fn is_port_open(port: u16) -> bool {
-    let connection = TcpStream::connect(("127.0.0.1", port));
-    connection.is_ok()
+struct Ports {
+    duration: Duration,
 }
 
-/// Check if a specific port is already open and give the name too
-pub fn is_port_open_with_name(port: u16) -> (bool, String) {
-    let database = Database::default();
-    let result = is_port_open(port);
-
-    let service = database.lookup(port, Protocol::Tcp);
-    let name = service
-        .map(|service| service.name.clone())
-        .unwrap_or_else(|| "unknown".to_string());
-
-    (result, name.clone())
+impl Default for Ports {
+    fn default() -> Self {
+        Self {
+            duration: Duration::from_millis(100),
+        }
+    }
 }
 
-/// Check if range of ports is allocated. Return a Vec<u16> with ports that is allocated
-pub fn ports_open_in_range(ports: Vec<u16>) -> Vec<u16> {
-    let mut allocated_ports = Vec::new();
+impl Ports {
+    fn new(duration: Duration) -> Self {
+        Self { duration }
+    }
 
-    for port in ports {
-        match is_port_open(port) {
-            true => allocated_ports.push(port),
-            false => continue,
+    pub async fn is_port_open(&self, port: u16) -> bool {
+        let connection = timeout(self.duration, TcpStream::connect(("127.0.0.1", port))).await;
+
+        match connection {
+            Ok(result) => result.is_ok(),
+            Err(_) => false,
         }
     }
 
-    allocated_ports
-}
+    pub async fn is_ports_open(&self, ports: RangeInclusive<u16>) -> Vec<u16> {
+        let mut result = Vec::new();
 
-/// Check if range of ports is allocated. Return a Vec<(bool, u16, String)> with (port, name) that is allocated
-pub fn ports_open_in_range_with_name(ports: Vec<u16>) -> Vec<(u16, String)> {
-    let mut allocated_ports = Vec::new();
-
-    for port in ports {
-        let result = is_port_open_with_name(port);
-        match result {
-            (true, name) => allocated_ports.push((port, name)),
-            (false, name) => continue,
+        for port in ports {
+            match self.is_port_open(port).await {
+                true => result.push(port),
+                false => continue,
+            };
         }
-    }
 
-    allocated_ports
+        result
+    }
 }
 
 #[cfg(test)]
@@ -56,25 +51,13 @@ mod tests {
     use super::*;
     use std::net::TcpListener;
 
-    #[test]
-    fn port_is_allocated() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
-
-        assert!(is_port_open(port));
+    #[tokio::test]
+    async fn mysql_exists() {
+        assert_eq!(Ports::default().is_port_open(3306).await, true);
     }
 
-    #[test]
-    fn port_is_not_allocated() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
-        drop(listener);
-
-        assert!(!is_port_open(port));
-    }
-
-    #[test]
-    fn port_open_in_range_is_allocated() {
+    #[tokio::test]
+    async fn multiple_port_open() {
         let first_listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let second_listener = TcpListener::bind("127.0.0.1:0").unwrap();
 
@@ -82,37 +65,10 @@ mod tests {
         let second_port = second_listener.local_addr().unwrap().port();
 
         assert_eq!(
-            ports_open_in_range(vec![first_port, second_port]).len(),
-            vec![first_port, second_port].len()
+            Ports::default()
+                .is_ports_open(first_port..=second_port)
+                .await,
+            vec![first_port, second_port]
         );
-    }
-
-    #[test]
-    fn only_one_port_is_allocated() {
-        let first_listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let second_listener = TcpListener::bind("127.0.0.1:0").unwrap();
-
-        let first_port = first_listener.local_addr().unwrap().port();
-        let second_port = second_listener.local_addr().unwrap().port();
-
-        drop(first_listener);
-
-        assert_eq!(
-            ports_open_in_range(vec![first_port, second_port]).len(),
-            vec![second_port].len()
-        );
-    }
-
-    #[test]
-    fn zero_port_is_allocated() {
-        let first_listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let second_listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let first_port = first_listener.local_addr().unwrap().port();
-        let second_port = second_listener.local_addr().unwrap().port();
-
-        drop(first_listener);
-        drop(second_listener);
-
-        assert_eq!(ports_open_in_range(vec![first_port, second_port]).len(), 0);
     }
 }
