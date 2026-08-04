@@ -7,7 +7,7 @@ pub struct Database {
     services: HashMap<(u16, Protocol), Service>,
 }
 
-#[derive(Eq, Hash, PartialEq, Clone)]
+#[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum Protocol {
     Udp,
     Tcp,

@@ -1,9 +1,9 @@
+use crate::database::{Database, Protocol, Service};
 use std::ops::RangeInclusive;
 use tokio::{
     net::TcpStream,
     time::{Duration, timeout},
 };
-use crate::database::{Database, Protocol};
 
 pub mod database;
 
@@ -29,14 +29,12 @@ impl Ports {
         }
     }
 
-    pub async fn is_port_open(&self, port: u16, protocol: Protocol) -> (String, bool) {
+    pub async fn is_port_open(&self, port: u16, protocol: Protocol) -> (Option<&Service>, bool) {
         let service = self.database.service_by_port(&(port, protocol));
         let connection = timeout(self.duration, TcpStream::connect(("127.0.0.1", port))).await;
 
         (
-            service
-                .map(|service| service.name.clone())
-                .unwrap_or_else(|| "unknown".to_string()),
+            service,
             match connection {
                 Ok(result) => result.is_ok(),
                 Err(_) => false,
@@ -44,12 +42,16 @@ impl Ports {
         )
     }
 
-    pub async fn is_ports_open(&self, ports: RangeInclusive<u16>, protocol: Protocol) -> Vec<(String, u16, bool)> {
+    pub async fn is_ports_open(
+        &self,
+        ports: RangeInclusive<u16>,
+        protocol: Protocol,
+    ) -> Vec<Option<&Service>> {
         let mut result = Vec::new();
 
         for port in ports {
             match self.is_port_open(port, protocol.clone()).await {
-                (name, true) => result.push((name, port, true)),
+                (service, true) => result.push(service),
                 (_, false) => continue,
             };
         }
@@ -64,9 +66,12 @@ mod tests {
 
     #[tokio::test]
     async fn mysql_exists() {
+        let ports = Ports::default();
+        let (service, open) = ports.is_port_open(3306, Protocol::Tcp).await;
+
         assert_eq!(
-            Ports::default().is_port_open(3306, Protocol::Tcp).await,
-            (String::from("mysql"), true)
+            (&service.unwrap().name, open),
+            (&String::from("mysql"), true)
         );
     }
 }
