@@ -3,26 +3,26 @@ use std::str::SplitWhitespace;
 
 const NMAP_SERVICES: &str = include_str!("../data/nmap-services.txt");
 
-struct Database {
+pub struct Database {
     services: HashMap<(u16, Protocol), Service>,
 }
 
 #[derive(Eq, Hash, PartialEq, Clone)]
-enum Protocol {
+pub enum Protocol {
     Udp,
     Tcp,
     Sctp,
 }
 
 #[derive(Clone)]
-struct Service {
-    name: String,
+pub struct Service {
+    pub name: String,
     /// port are between [0..=65536]
-    port: u16,
+    pub port: u16,
     /// Can be Udp, Tcp, Sctp
-    protocol: Protocol,
+    pub protocol: Protocol,
     /// Open frequency
-    frequency: f32,
+    pub frequency: f32,
 }
 
 impl Service {
