@@ -55,7 +55,7 @@ mod tests {
             vec![first_port, second_port].len()
         );
     }
-    
+
     #[test]
     fn only_one_port_is_allocated() {
         let first_listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -63,7 +63,7 @@ mod tests {
 
         let first_port = first_listener.local_addr().unwrap().port();
         let second_port = second_listener.local_addr().unwrap().port();
-        
+
         drop(first_listener);
 
         assert_eq!(
@@ -71,20 +71,17 @@ mod tests {
             vec![second_port].len()
         );
     }
-    
+
     #[test]
     fn zero_port_is_allocated() {
         let first_listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let second_listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let first_port = first_listener.local_addr().unwrap().port();
         let second_port = second_listener.local_addr().unwrap().port();
-        
+
         drop(first_listener);
         drop(second_listener);
 
-        assert_eq!(
-            ports_open_in_range(vec![first_port, second_port]).len(),
-            0
-        );
+        assert_eq!(ports_open_in_range(vec![first_port, second_port]).len(), 0);
     }
 }
