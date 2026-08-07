@@ -1,58 +1,66 @@
-use crate::database::{Database, Protocol, Service};
-use std::ops::RangeInclusive;
-use tokio::{
-    net::TcpStream,
-    time::{Duration, timeout},
-};
+use portlex::{Glossary, Line, Protocol};
+use std::sync::LazyLock;
+use tokio::net::{TcpStream, UdpSocket};
+use tokio::time::{Duration, timeout};
 
-pub mod database;
+static GLOSSARY: LazyLock<Glossary> = LazyLock::new(|| Glossary::default());
 
-pub struct Ports {
-    database: Database,
-    duration: Duration,
+pub enum SupportedProtocol {
+    Tcp,
+    Udp,
 }
 
-impl Default for Ports {
+impl From<SupportedProtocol> for Protocol {
+    fn from(protocol: SupportedProtocol) -> Self {
+        match protocol {
+            SupportedProtocol::Tcp => Protocol::Tcp,
+            SupportedProtocol::Udp => Protocol::Udp,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Port {
+    duration: Duration,
+    url: String,
+}
+
+impl Default for Port {
     fn default() -> Self {
         Self {
-            database: Database::new(),
             duration: Duration::from_millis(100),
+            url: "127.0.0.1".to_string(),
         }
     }
 }
 
-impl Ports {
-    fn new(duration: Duration) -> Self {
-        Self {
-            database: Database::new(),
+impl Port {
+    pub fn new(duration: Duration, url: &str) -> Self {
+        Port {
             duration,
+            url: url.to_string(),
         }
     }
 
-    pub async fn is_port_open(&self, port: u16) -> (Option<&Service>, bool) {
-        let service = self.database.service_by_port(&(port, Protocol::Tcp));
-        let connection = timeout(self.duration, TcpStream::connect(("127.0.0.1", port))).await;
+    async fn tcp_connect(&self, port: u16) -> (Option<&Line>, bool) {
+        let service = GLOSSARY.get_line(port, Protocol::Tcp);
+        let connection = timeout(self.duration, TcpStream::connect((self.url.clone(), port))).await;
 
         (
             service,
-            match connection {
-                Ok(result) => result.is_ok(),
-                Err(_) => false,
-            },
+            connection.map(|result| result.is_ok()).unwrap_or(false),
         )
     }
 
-    pub async fn is_ports_open(&self, ports: RangeInclusive<u16>) -> Vec<Option<&Service>> {
-        let mut result = Vec::new();
-
-        for port in ports {
-            match self.is_port_open(port).await {
-                (service, true) => result.push(service),
-                (_, false) => continue,
-            };
+    pub async fn is_port_open(
+        &self,
+        port: u16,
+        protocol: SupportedProtocol,
+    ) -> (Option<&Line>, bool) {
+        match protocol {
+            SupportedProtocol::Tcp => self.tcp_connect(port).await,
+            SupportedProtocol::Udp => panic!("Not implemented yet"),
         }
-
-        result
     }
 }
 
@@ -62,8 +70,8 @@ mod tests {
 
     #[tokio::test]
     async fn mysql_doesnt_exists() {
-        let ports = Ports::default();
-        let (service, open) = ports.is_port_open(3306).await;
+        let ports = Port::default();
+        let (service, open) = ports.is_port_open(3306, SupportedProtocol::Tcp).await;
 
         assert_eq!(
             (&service.unwrap().name, open),

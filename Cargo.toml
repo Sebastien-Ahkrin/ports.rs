@@ -7,3 +7,5 @@ repository = "https://github.com/Sebastien-Ahkrin/ports.rs"
 
 [dependencies]
 tokio = { version = "1.53.1", features = ["net", "time", "macros", "rt-multi-thread"] }
+portlex = { git = "https://github.com/Sebastien-Ahkrin/portlex.rs" }
+test-case = "3.3.1"
